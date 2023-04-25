@@ -6,6 +6,7 @@ from fastapi_utils.tasks import repeat_every
 from sqlalchemy.orm import Session
 
 from app.common.base import Base
+from app.common.config import API_HOST, API_PORT
 from app.common.crud import get_tokens, sync_tokens
 from app.common.schemas import TokenSchema
 from app.common.session import engine, get_db, sessionmaker_for_periodic_task
@@ -37,4 +38,4 @@ def sync_tokens_task() -> None:
 
 
 if __name__ == '__main__':
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=API_HOST, port=API_PORT)
