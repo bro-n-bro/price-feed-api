@@ -22,7 +22,7 @@ def sync_tokens(db: Session):
         token_to_create = []
         for token in tokens:
             db_token_query = db.query(Token).filter(Token.denom == token.denom)
-            if db_token_query:
+            if db_token_query.first():
                 db_token_query.update(token.dict())
             else:
                 token_to_create.append(token)

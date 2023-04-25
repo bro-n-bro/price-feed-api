@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.common.base import Base
 from app.common.crud import get_tokens, sync_tokens
 from app.common.schemas import TokenSchema
-from app.common.session import engine, get_db
+from app.common.session import engine, get_db, sessionmaker_for_periodic_task
 
 
 def create_tables():
@@ -30,9 +30,10 @@ def read_users(denom__in: str = '', db: Session = Depends(get_db)):
 
 
 @app.on_event("startup")
-@repeat_every(seconds=3600)
-def sync_tokens_task(db: Session = Depends(get_db)) -> None:
-    sync_tokens(db)
+@repeat_every(seconds=1800)
+def sync_tokens_task() -> None:
+    with sessionmaker_for_periodic_task.context_session() as db:
+        sync_tokens(db)
 
 
 if __name__ == '__main__':

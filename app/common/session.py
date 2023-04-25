@@ -1,5 +1,6 @@
 from typing import Generator
 
+from fastapi_utils.session import FastAPISessionMaker
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -11,6 +12,7 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+sessionmaker_for_periodic_task = FastAPISessionMaker(SQLALCHEMY_DATABASE_URL)
 
 def get_db() -> Generator:
     try:
