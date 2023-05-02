@@ -25,8 +25,8 @@ app = start_application()
 
 
 @app.get("/tokens/", response_model=List[TokenSchema])
-def read_users(denom__in: str = '', db: Session = Depends(get_db)):
-    return get_tokens(denom__in, db)
+def read_users(symbol__in: str = '', db: Session = Depends(get_db)):
+    return get_tokens(symbol__in, db)
 
 
 @app.on_event("startup")

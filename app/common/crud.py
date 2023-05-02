@@ -8,9 +8,9 @@ from app.common.models import Token
 from app.common.schemas import TokenSchema
 
 
-def get_tokens(denom__in, db: Session):
-    if denom__in:
-        return db.query(Token).filter(Token.denom.in_(denom__in.split(','))).all()
+def get_tokens(symbol__in, db: Session):
+    if symbol__in:
+        return db.query(Token).filter(Token.symbol.in_(symbol__in.split(','))).all()
     else:
         return db.query(Token).all()
 
