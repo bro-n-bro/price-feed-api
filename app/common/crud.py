@@ -1,5 +1,6 @@
 from typing import List
 from pydantic import parse_obj_as
+from sqlalchemy import func
 
 import requests
 from sqlalchemy.orm import Session
@@ -8,9 +9,9 @@ from app.common.models import Token
 from app.common.schemas import TokenSchema
 
 
-def get_tokens(symbol__in, db: Session):
+def get_tokens(symbol__in: str, db: Session):
     if symbol__in:
-        return db.query(Token).filter(Token.symbol.in_(symbol__in.split(','))).all()
+        return db.query(Token).filter(func.lower(Token.symbol).in_(symbol__in.lower().split(','))).all()
     else:
         return db.query(Token).all()
 
