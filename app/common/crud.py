@@ -31,3 +31,22 @@ def sync_tokens(db: Session):
             db_token = Token(**token.dict())
             db.add(db_token)
         db.commit()
+    ntrn_response = requests.get('https://develop-multichain-api.astroport.fi/router/v2/route?start=untrn&end=ibc/f082b65c88e4b6d5ef1db243cda1d331d002759e938a0f5cd3ffdc5d53b3e349&amount=1000000&chainId=neutron-1')
+    if ntrn_response.ok:
+        ntrn_response_json = ntrn_response.json()
+        neutron_data = {
+            'price': ntrn_response_json.get('amount_out')/1000000,
+            'exponent': 6,
+            'name': 'Neutron',
+            'symbol': 'NTRN',
+            'denom': 'ibc/f082b65c88e4b6d5ef1db243cda1d331d002759e938a0f5cd3ffdc5d53b3e349',
+            'display': 'ntrn'
+        }
+        ntrn_parsed = TokenSchema.parse_obj(neutron_data)
+        db_token_query = db.query(Token).filter(Token.denom == ntrn_parsed.denom)
+        if db_token_query.first():
+            db_token_query.update(ntrn_parsed.dict())
+        else:
+            db_token = Token(**ntrn_parsed.dict())
+            db.add(db_token)
+        db.commit()

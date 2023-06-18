@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -5,12 +7,12 @@ class TokenSchema(BaseModel):
     price: float
     denom: str
     symbol: str
-    liquidity: float
-    volume_24h: float
-    volume_24h_change: float
+    liquidity: Optional[float] = None
+    volume_24h: Optional[float] = None
+    volume_24h_change: Optional[float] = None
     name: str
-    price_24h_change: float
-    price_7d_change: float
+    price_24h_change: Optional[float] = None
+    price_7d_change: Optional[float] = None
     exponent: int
     display: str
 
