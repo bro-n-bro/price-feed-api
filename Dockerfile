@@ -7,6 +7,8 @@ WORKDIR /code
 # 
 COPY ./requirements.txt /code/requirements.txt
 
+COPY ./config.py /code/config.py
+
 # 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
