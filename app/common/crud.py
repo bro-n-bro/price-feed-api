@@ -24,7 +24,6 @@ def make_get_requests_to_coingecko(request_urls):
     return result
 
 def get_info_for_all_coins_from_coingecko(coins_ids):
-
     request_urls = []
     current_url = f'https://api.coingecko.com/api/v3/coins/markets?x_cg_demo_api_key={COINGECKO_API_KEY}&vs_currency=usd&per_page=250&'
     for coingecko_id in coins_ids:
@@ -41,27 +40,28 @@ def get_info_for_all_coins_from_coingecko(coins_ids):
 
 
 def sync_tokens(db: Session):
-    response = requests.get('https://skychart.bronbro.io/v1/assets')
+    chains_list = requests.get('https://skychart.bronbro.io/v1/chains').json()
     result = []
     coingecko_ids = []
-    for symbol in set(response.json()):
-        response = requests.get(f'https://skychart.bronbro.io/v1/asset/{symbol}')
-        if response.status_code == 200 and 'coingecko_id' in response.json():
-            coin = response.json()
-            result.append({
-                'denom': next((item['denom'] for item in coin['denom_units'] if item['exponent'] == 0),
-                              'Not defined in skychart'),
-                'exponent': max([item['exponent'] for item in coin['denom_units']]),
-                'name': coin['name'],
-                'display': coin['display'],
-                'coingecko_id': coin['coingecko_id'],
-                'liquidity': 0,
-                'volume_24h': 0,
-                'volume_24h_change': 0,
-                'price_7d_change': 0
-            })
-            coingecko_ids.append(coin['coingecko_id'])
-
+    for chain in chains_list:
+        response = requests.get(f'https://skychart.bronbro.io/v1/chain/{chain}/assets')
+        if response.status_code == 200:
+            asseets_list = response.json()['assets']
+            for asset in asseets_list:
+                if 'coingecko_id' in asset:
+                    result.append({
+                        'denom': next((item['denom'] for item in asset['denom_units'] if item['exponent'] == 0),
+                                      'Not defined in skychart'),
+                        'exponent': max([item['exponent'] for item in asset['denom_units']]),
+                        'name': asset['name'],
+                        'display': asset['display'],
+                        'coingecko_id': asset['coingecko_id'],
+                        'liquidity': 0,
+                        'volume_24h': 0,
+                        'volume_24h_change': 0,
+                        'price_7d_change': 0
+                    })
+                    coingecko_ids.append(asset['coingecko_id'])
     coingecko_info = get_info_for_all_coins_from_coingecko(coingecko_ids)
     final_result = []
     for item in result:
@@ -74,6 +74,7 @@ def sync_tokens(db: Session):
             item.pop('coingecko_id')
             if item['price']:
                 final_result.append(item)
+    final_result = [dict(t) for t in {frozenset(d.items()) for d in final_result}]
     tokens = parse_obj_as(List[TokenSchema], final_result)
     token_to_create = []
     for token in tokens:
