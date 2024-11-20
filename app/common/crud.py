@@ -74,7 +74,14 @@ def sync_tokens(db: Session):
             item.pop('coingecko_id')
             if item['price']:
                 final_result.append(item)
-    final_result = [dict(t) for t in {frozenset(d.items()) for d in final_result}]
+    seen = set()
+    unique_dicts = []
+    for d in final_result:
+        if d["symbol"] not in seen and d["denom"] not in seen:
+            unique_dicts.append(d)
+            seen.add(d["symbol"])
+            seen.add(d["denom"])
+    final_result = unique_dicts
     tokens = parse_obj_as(List[TokenSchema], final_result)
     token_to_create = []
     for token in tokens:
@@ -83,7 +90,13 @@ def sync_tokens(db: Session):
             db_token_query.update(token.dict())
         else:
             token_to_create.append(token)
+
     for token in token_to_create:
         db_token = Token(**token.dict())
         db.add(db_token)
-    db.commit()
+    try:
+        db.commit()
+        print("Committed successfully")
+    except Exception as e:
+        db.rollback()
+        print(f"Error during commit: {e}")
