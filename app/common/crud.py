@@ -1,4 +1,8 @@
+import json
+import os
 from typing import List
+
+import git
 from pydantic import parse_obj_as
 from sqlalchemy import func
 
@@ -39,32 +43,85 @@ def get_info_for_all_coins_from_coingecko(coins_ids):
     return make_get_requests_to_coingecko(request_urls)
 
 
-def sync_tokens(db: Session):
-    chains_list = requests.get('https://skychart.bronbro.io/v1/chains').json()
-    result = []
-    coingecko_ids = []
-    for chain in chains_list:
-        response = requests.get(f'https://skychart.bronbro.io/v1/chain/{chain}/assets')
-        if response.status_code == 200:
-            asseets_list = response.json()['assets']
-            for asset in asseets_list:
-                if 'coingecko_id' in asset:
-                    result.append({
-                        'denom': next((item['denom'] for item in asset['denom_units'] if item['exponent'] == 0),
-                                      'Not defined in skychart'),
-                        'exponent': max([item['exponent'] for item in asset['denom_units']]),
-                        'name': asset['name'],
-                        'display': asset['display'],
-                        'coingecko_id': asset['coingecko_id'],
-                        'liquidity': 0,
-                        'volume_24h': 0,
-                        'volume_24h_change': 0,
-                        'price_7d_change': 0
-                    })
-                    coingecko_ids.append(asset['coingecko_id'])
-    coingecko_info = get_info_for_all_coins_from_coingecko(coingecko_ids)
+REPO_OWNER = "bro-n-bro"
+REPO_NAME = "chain-registry"
+BRANCH_NAME = "main"
+REPO_URL = "https://github.com/bro-n-bro/chain-registry.git"
+REPO_PATH = "./chain-registry"
+
+
+def get_latest_commit_hash():
+    url = f"https://api.github.com/repos/bro-n-bro/chain-registry/commits/master"
+    response = requests.get(url)
+    if response.status_code == 200:
+        commit_data = response.json()
+        return commit_data['sha']
+    else:
+        return None
+
+def get_stored_commit_hash():
+    try:
+        with open('last_commit.txt', "r") as file:
+            return file.readline().strip()
+    except FileNotFoundError:
+        return None
+
+def write_new_commit_hash(new_value):
+    with open('last_commit.txt', "w") as file:
+        file.write(new_value)
+
+def clone_repo():
+    git.Repo.clone_from(REPO_URL, REPO_PATH)
+
+def pull_repo():
+    repo = git.Repo(REPO_PATH)
+    origin = repo.remotes.origin
+    origin.pull("master")
+
+def check_and_update_repo():
+    if not os.path.exists(REPO_PATH):
+        clone_repo()
+    else:
+        try:
+            pull_repo()
+        except git.exc.InvalidGitRepositoryError:
+            clone_repo()
+
+
+def find_assetlist_json():
+    assetlist_data = []
+
+    for root, dirs, files in os.walk(REPO_PATH):
+        if root == REPO_PATH:
+            for dir_name in dirs:
+                folder_path = os.path.join(root, dir_name)
+                assetlist_path = os.path.join(folder_path, 'assetlist.json')
+                if os.path.exists(assetlist_path):
+                    try:
+                        with open(assetlist_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            for asset in data['assets']:
+                                if asset.get('coingecko_id'):
+                                    assetlist_data.append({
+                                        'denom': next(
+                                            (item['denom'] for item in asset['denom_units'] if item['exponent'] == 0),
+                                            'Not defined in skychart'),
+                                        'exponent': max([item['exponent'] for item in asset['denom_units']]),
+                                        'name': asset['name'],
+                                        'display': asset['display'],
+                                        'coingecko_id': asset['coingecko_id'],
+                                        'liquidity': 0,
+                                        'volume_24h': 0,
+                                        'volume_24h_change': 0,
+                                        'price_7d_change': 0
+                                    })
+                    except (json.JSONDecodeError, OSError) as e:
+                        print(f"Read error {assetlist_path}: {e}")
+    return assetlist_data
+
+def get_tokens_with_coingecko_info(tokens, coingecko_info):
     final_result = []
-    for item in result:
+    for item in tokens:
         coingecko = next(
             (coingecko_data for coingecko_data in coingecko_info if coingecko_data['id'] == item['coingecko_id']), None)
         if coingecko:
@@ -74,14 +131,9 @@ def sync_tokens(db: Session):
             item.pop('coingecko_id')
             if item['price']:
                 final_result.append(item)
-    seen = set()
-    unique_dicts = []
-    for d in final_result:
-        if d["symbol"] not in seen and d["denom"] not in seen:
-            unique_dicts.append(d)
-            seen.add(d["symbol"])
-            seen.add(d["denom"])
-    final_result = unique_dicts
+    return final_result
+
+def save_tokens_to_db(db, final_result):
     tokens = parse_obj_as(List[TokenSchema], final_result)
     token_to_create = []
     for token in tokens:
@@ -90,7 +142,6 @@ def sync_tokens(db: Session):
             db_token_query.update(token.dict())
         else:
             token_to_create.append(token)
-
     for token in token_to_create:
         db_token = Token(**token.dict())
         db.add(db_token)
@@ -100,3 +151,55 @@ def sync_tokens(db: Session):
     except Exception as e:
         db.rollback()
         print(f"Error during commit: {e}")
+
+def remove_duplicates(final_result):
+    seen_coingecko_ids = set()
+    seen_denoms = set()
+    denom_map = {}
+
+    for item in final_result:
+        coingecko_id = item['coingecko_id']
+        denom = item['denom']
+
+        if not item['denom'].startswith('IBC/'):
+            if coingecko_id not in seen_coingecko_ids and denom not in seen_denoms:
+                seen_coingecko_ids.add(coingecko_id)
+                seen_denoms.add(denom)
+                denom_map[coingecko_id] = item
+
+    filtered_data = list(denom_map.values())  # Start with non-IBC items
+
+    for item in final_result:
+        coingecko_id = item['coingecko_id']
+        denom = item['denom']
+
+        if item['denom'].startswith('IBC/') and coingecko_id not in denom_map and denom not in seen_denoms:
+            filtered_data.append(item)
+            seen_denoms.add(denom)
+    return filtered_data
+
+def append_default_tokens(tokens):
+    tokens.append({
+
+    })
+    tokens.append({
+
+    })
+    tokens.append({
+
+    })
+
+
+def sync_tokens(db: Session):
+    latest_commit_hash = get_latest_commit_hash()
+    if latest_commit_hash:
+        stored_commit_hash = get_stored_commit_hash()
+        if latest_commit_hash != stored_commit_hash:
+            check_and_update_repo()
+            write_new_commit_hash(latest_commit_hash)
+    tokens = find_assetlist_json()
+    tokens = remove_duplicates(tokens)
+    coingecko_ids = [token['coingecko_id'] for token in tokens]
+    coingecko_info = get_info_for_all_coins_from_coingecko(coingecko_ids)
+    final_result = get_tokens_with_coingecko_info(tokens, coingecko_info)
+    save_tokens_to_db(db, final_result)

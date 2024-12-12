@@ -20,7 +20,18 @@ def start_application():
     create_tables()
     return app
 
+FILE_PATH = "last_commit.txt"
 
+def initialize_file():
+    try:
+        with open(FILE_PATH, "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        with open(FILE_PATH, "w") as f:
+            f.write('')
+        return ''
+
+data = initialize_file()
 app = start_application()
 
 
