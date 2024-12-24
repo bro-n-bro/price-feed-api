@@ -179,15 +179,8 @@ def remove_duplicates(final_result):
     return filtered_data
 
 def append_default_tokens(tokens):
-    tokens.append({
-
-    })
-    tokens.append({
-
-    })
-    tokens.append({
-
-    })
+    tokens.append({'denom': 'btc', 'exponent': 1, 'name': 'Bitcoin', 'display': 'btc', 'coingecko_id': 'bitcoin', 'liquidity': 0, 'volume_24h': 0, 'volume_24h_change': 0, 'price_7d_change': 0})
+    tokens.append({'denom': 'eth', 'exponent': 1, 'name': 'Ethereum', 'display': 'eth', 'coingecko_id': 'ethereum', 'liquidity': 0, 'volume_24h': 0, 'volume_24h_change': 0, 'price_7d_change': 0})
 
 
 def sync_tokens(db: Session):
@@ -199,6 +192,7 @@ def sync_tokens(db: Session):
             write_new_commit_hash(latest_commit_hash)
     tokens = find_assetlist_json()
     tokens = remove_duplicates(tokens)
+    append_default_tokens(tokens)
     coingecko_ids = [token['coingecko_id'] for token in tokens]
     coingecko_info = get_info_for_all_coins_from_coingecko(coingecko_ids)
     final_result = get_tokens_with_coingecko_info(tokens, coingecko_info)
