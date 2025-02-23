@@ -181,6 +181,7 @@ def remove_duplicates(final_result):
 def append_default_tokens(tokens):
     tokens.append({'denom': 'btc', 'exponent': 1, 'name': 'Bitcoin', 'display': 'btc', 'coingecko_id': 'bitcoin', 'liquidity': 0, 'volume_24h': 0, 'volume_24h_change': 0, 'price_7d_change': 0})
     tokens.append({'denom': 'eth', 'exponent': 1, 'name': 'Ethereum', 'display': 'eth', 'coingecko_id': 'ethereum', 'liquidity': 0, 'volume_24h': 0, 'volume_24h_change': 0, 'price_7d_change': 0})
+    tokens.append({'denom': 'elys', 'exponent': 1, 'name': 'Elys', 'display': 'elys', 'coingecko_id': 'elys-network', 'liquidity': 0, 'volume_24h': 0, 'volume_24h_change': 0, 'price_7d_change': 0})
 
 
 def sync_tokens(db: Session):
